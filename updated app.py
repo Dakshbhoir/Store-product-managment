@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox, simpledialog
 import json, os
 
 FILE = "inventory.json"
+USERS_FILE = "users.json"
 
 def load_data():
     if os.path.exists(FILE):
@@ -13,6 +14,16 @@ def load_data():
 def save_data():
     with open(FILE, "w") as f:
         json.dump(inventory, f)
+
+def load_users():
+    if os.path.exists(USERS_FILE):
+        with open(USERS_FILE, "r") as f:
+            return json.load(f)
+    return []
+
+def save_users(users):
+    with open(USERS_FILE, "w") as f:
+        json.dump(users, f)
 
 def add_item():
     name = name_var.get().strip()
@@ -79,6 +90,55 @@ def search_items(*args):
     else:
         filtered = [item for item in inventory if query in item["name"].lower()]
         refresh_table(filtered)
+
+def register_user():
+    username = reg_username_var.get().strip()
+    password = reg_password_var.get().strip()
+    role = reg_role_var.get()
+    users = load_users()
+    if not username or not password or not role:
+        messagebox.showwarning("Input Error", "Enter username, password and select role")
+        return
+    if any(u['username'] == username for u in users):
+        messagebox.showwarning("Register Error", "Username already exists")
+        return
+    users.append({"username": username, "password": password, "role": role})
+    save_users(users)
+    messagebox.showinfo("Success", "Registration successful! Please login.")
+    show_login()
+
+def login_user():
+    username = login_username_var.get().strip()
+    password = login_password_var.get().strip()
+    role = login_role_var.get()
+    users = load_users()
+    if any(u['username'] == username and u['password'] == password and u['role'] == role for u in users):
+        login_frame.pack_forget()
+        register_frame.pack_forget()
+        # Clear sidebar
+        for widget in sidebar.winfo_children():
+            widget.destroy()
+        if role == "Inventory Manager":
+            tk.Button(sidebar, text="Add Item", width=18, command=show_add_item, bg="#4682b4", fg="white").pack(pady=10)
+            tk.Button(sidebar, text="Inventory", width=18, command=show_main_content, bg="#4682b4", fg="white").pack(pady=10)
+            tk.Button(sidebar, text="Selling History", width=18, command=lambda: messagebox.showinfo("Info", "Selling History feature coming soon!"), bg="#4682b4", fg="white").pack(pady=10)
+        elif role == "Counter Staff":
+            tk.Button(sidebar, text="Sell Item", width=18, command=lambda: messagebox.showinfo("Info", "Sell Item feature coming soon!"), bg="#4682b4", fg="white").pack(pady=10)
+            tk.Button(sidebar, text="Selling History", width=18, command=lambda: messagebox.showinfo("Info", "Selling History feature coming soon!"), bg="#4682b4", fg="white").pack(pady=10)
+        sidebar.pack(side=tk.LEFT, fill=tk.Y)
+        show_main_content()
+    else:
+        messagebox.showerror("Login Failed", "Invalid username, password or role")
+
+def show_login():
+    register_frame.pack_forget()
+    sidebar.pack_forget()  # Hide sidebar on login screen
+    login_frame.pack(fill=tk.BOTH, expand=True)
+
+def show_register():
+    login_frame.pack_forget()
+    sidebar.pack_forget()  # Hide sidebar on register screen
+    register_frame.pack(fill=tk.BOTH, expand=True)
 
 # GUI setup
 root = tk.Tk()
@@ -155,17 +215,42 @@ def show_main_content():
     add_item_frame.pack_forget()
     main_content_frame.pack(fill=tk.BOTH, expand=True)
 
+# --- LOGIN FRAME ---
+login_frame = tk.Frame()
+tk.Label(login_frame, text="Login", font=("Arial", 16, "bold")).pack(pady=10)
+login_username_var = tk.StringVar()
+login_password_var = tk.StringVar()
+login_role_var = tk.StringVar()
+tk.Label(login_frame, text="Username:").pack()
+tk.Entry(login_frame, textvariable=login_username_var).pack()
+tk.Label(login_frame, text="Password:").pack()
+tk.Entry(login_frame, textvariable=login_password_var, show="*").pack()
+tk.Label(login_frame, text="Role:").pack()
+tk.OptionMenu(login_frame, login_role_var, "Inventory Manager", "Counter Staff").pack()
+tk.Button(login_frame, text="Login", command=login_user, bg="#4682b4", fg="white").pack(pady=10)
+tk.Button(login_frame, text="Register", command=show_register, fg="#4682b4").pack()
+
+# --- REGISTER FRAME ---
+register_frame = tk.Frame()
+tk.Label(register_frame, text="Register", font=("Arial", 16, "bold")).pack(pady=10)
+reg_username_var = tk.StringVar()
+reg_password_var = tk.StringVar()
+reg_role_var = tk.StringVar()
+tk.Label(register_frame, text="Username:").pack()
+tk.Entry(register_frame, textvariable=reg_username_var).pack()
+tk.Label(register_frame, text="Password:").pack()
+tk.Entry(register_frame, textvariable=reg_password_var, show="*").pack()
+tk.Label(register_frame, text="Role:").pack()
+tk.OptionMenu(register_frame, reg_role_var, "Inventory Manager", "Counter Staff").pack()
+tk.Button(register_frame, text="Register", command=register_user, bg="#32cd32", fg="white").pack(pady=10)
+tk.Button(register_frame, text="Back to Login", command=show_login, fg="#4682b4").pack()
+
 # --- SIDEBAR ---
 sidebar = tk.Frame(root, bg="#dde7fa", width=150)
-sidebar.pack(side=tk.LEFT, fill=tk.Y)
-
-tk.Label(sidebar, text="Menu", bg="#dde7fa", font=("Arial", 13, "bold")).pack(pady=(20, 10))
-tk.Button(sidebar, text="Add Item", command=show_add_item, bg="#87cefa", fg="white", activebackground="#4682b4").pack(fill=tk.X, padx=10, pady=5)
-tk.Button(sidebar, text="Inventory", command=show_main_content, bg="#4682b4", fg="white", activebackground="#315a8c").pack(fill=tk.X, padx=10, pady=5)
-tk.Button(sidebar, text="Exit", command=on_exit, bg="#b0b0b0", fg="black", activebackground="#888888").pack(fill=tk.X, padx=10, pady=(30,5))
+# Do NOT pack sidebar here! It will be packed after successful login.
 
 # --- INITIAL VIEW ---
-show_main_content()
+show_login()
 
 refresh_table()
 root.mainloop()
